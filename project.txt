@@ -1,0 +1,12 @@
+Overview You are designing a system to deploy a Spring Boot application on AWS using EC2, behind an Application Load Balancer (ALB), connected to a PostgreSQL database (RDS). 
+The deployment and provisioning are automated using Terraform and GitHub Actions (CI/CD). Components User → ALB (Application Load Balancer) Users access your application via the ALB. 
+The ALB distributes incoming HTTP requests to multiple EC2 instances running the Spring Boot application. App Servers (EC2 Instances) Two EC2 instances host the Spring Boot application. 
+They are in the private subnet (for security, so they’re not publicly exposed directly). Spring Boot is configured to connect to PostgreSQL for database operations. 
+Database (PostgreSQL / RDS) Managed PostgreSQL database hosted in AWS RDS. The Spring Boot app communicates with this database over the internal network. 
+Likely in a private subnet as well, not accessible from the internet directly. Infrastructure Automation Terraform Provisions the environment: VPC: Virtual network for your application. 
+Subnets: Public subnet (for ALB) and private subnet (for EC2 & RDS). Other resources like security groups, IAM roles, etc. 
+Terraform scripts are triggered via GitHub Actions. CI/CD (GitHub Actions) Automates Spring Boot deployment: Clone the repository from GitHub. 
+Build the project using Maven or Gradle. Generate the artifact (like a .jar file). Deploy the artifact to EC2 instances. Can also include tests, notifications, or rollback strategies. 
+Workflow User Request → hits ALB ALB → forwards request to one of the EC2 app servers Spring Boot App → queries PostgreSQL (RDS) EC2 logs, metrics, or auto-scaling can be configured based on load. 
+Key Notes Public subnet is typically used for the ALB so it can be accessed from the internet. Private subnet hosts your EC2 instances and RDS for better security. 
+Terraform + GitHub Actions ensures Infrastructure as Code (IaC) and automated deployment. This setup is scalable: you can add more EC2 instances behind the ALB easily. draw a clean diagram for this architecture
