@@ -158,6 +158,13 @@ resource "aws_security_group" "ec2" {
     security_groups = [aws_security_group.alb.id]
   }
 
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -183,6 +190,39 @@ resource "aws_security_group" "rds" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "bastion" {
+  name        = "bastion-sg"
+  description = "Security group for the bastion host"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "bastion" {
+  ami           = var.ami_id
+    instance_type = "t3.micro"
+  subnet_id     = aws_subnet.public_a.id
+  key_name      = "launchpad-key"
+  vpc_security_group_ids = [aws_security_group.bastion.id]
+  associate_public_ip_address = true
+
+  tags = {
+    Name = "bastion-host"
   }
 }
 
@@ -256,6 +296,7 @@ resource "aws_launch_template" "ec2" {
   name_prefix   = "ec2-lt-"
   image_id      = var.ami_id
   instance_type = var.instance_type
+  key_name      = "launchpad-key"
 
   iam_instance_profile {
     name = aws_iam_instance_profile.ec2_instance_profile.name
@@ -318,7 +359,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "main" {
   allocated_storage    = 20
   engine               = "postgres"
-  engine_version       = "13.16"
+  engine_version       = "13.20"
   instance_class       = "db.t3.micro"
   db_name              = var.db_name
   username             = var.db_username
