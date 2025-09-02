@@ -81,8 +81,16 @@ jobs:
 
       - name: Trigger deployment on EC2 via SSM
         run: |
-          aws ssm send-command \
+          COMMAND_ID=$(aws ssm send-command \
             --targets "Key=tag:aws:autoscaling:groupName,Values=${{ secrets.ASG_NAME }}" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy Spring Boot App" \
-            --parameters 'commands=["bash -c \"/opt/deploy.sh '${{ secrets.S3_ARTIFACTS_BUCKET }}' '${{ env.ARTIFACT_NAME }}'\""]'
+            --parameters 'commands=["bash -c \"/opt/deploy.sh '${{ secrets.S3_ARTIFACTS_BUCKET }}' '${{ env.ARTIFACT_NAME }}'\""]' \
+            --query "Command.CommandId" --output text)
+
+          echo "SSM Command ID: $COMMAND_ID"
+
+          # Wait until all instances finish
+          aws ssm list-command-invocations \
+            --command-id $COMMAND_ID \
+            --details
