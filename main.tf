@@ -333,7 +333,17 @@ resource "aws_lb_target_group" "main" {
   port     = 8080
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
+
+  health_check {
+    path                = "/actuator/health"   # Actuator endpoint, always returns 200
+    interval            = 30                   # seconds between health checks
+    timeout             = 5                    # seconds before marking timeout
+    healthy_threshold   = 2                    # number of consecutive successes to be healthy
+    unhealthy_threshold = 2                    # number of consecutive failures to be unhealthy
+    matcher             = "200"                # expected HTTP status
+  }
 }
+
 
 resource "aws_lb_listener" "main" {
   load_balancer_arn = aws_lb.main.arn
