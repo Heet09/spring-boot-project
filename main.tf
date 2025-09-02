@@ -33,9 +33,10 @@ resource "aws_subnet" "public_b" {
 }
 
 resource "aws_subnet" "private_a" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_a_cidr_block
-  availability_zone = "${var.aws_region}a"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_a_cidr_block
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
 
   tags = {
     Name = "private-subnet-a"
@@ -43,9 +44,10 @@ resource "aws_subnet" "private_a" {
 }
 
 resource "aws_subnet" "private_b" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_b_cidr_block
-  availability_zone = "${var.aws_region}b"
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.private_subnet_b_cidr_block
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
 
   tags = {
     Name = "private-subnet-b"
@@ -158,13 +160,6 @@ resource "aws_security_group" "ec2" {
     security_groups = [aws_security_group.alb.id]
   }
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -213,18 +208,7 @@ resource "aws_security_group" "bastion" {
   }
 }
 
-resource "aws_instance" "bastion" {
-  ami           = var.ami_id
-    instance_type = "t3.micro"
-  subnet_id     = aws_subnet.public_a.id
-  key_name      = "launchpad-key"
-  vpc_security_group_ids = [aws_security_group.bastion.id]
-  associate_public_ip_address = true
 
-  tags = {
-    Name = "bastion-host"
-  }
-}
 
 resource "aws_iam_role" "ec2_role" {
   name = "ec2-role"
@@ -245,43 +229,26 @@ resource "aws_iam_role" "ec2_role" {
 
 resource "aws_iam_policy" "ec2_policy" {
   name        = "ec2-policy"
-  description = "Policy for EC2 instances"
+  description = "Policy for EC2 instances to access S3 bucket"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
         Action = [
-          "ssm:DescribeAssociation",
-          "ssm:GetDeployablePatchSnapshotForInstance",
-          "ssm:GetDocument",
-          "ssm:DescribeDocument",
-          "ssm:GetManifest",
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-          "ssm:ListAssociations",
-          "ssm:ListInstanceAssociations",
-          "ssm:PutInventory",
-          "ssm:PutComplianceItems",
-          "ssm:PutParameter",
-          "ssm:UpdateAssociationStatus",
-          "ssm:UpdateInstanceAssociationStatus",
-          "ssm:UpdateInstanceInformation"
+          "s3:GetObject",
+          "s3:ListAllMyBuckets",
+          "s3:fullaccess"
         ]
         Effect   = "Allow"
-        Resource = "*"
-      },
-      {
-        Action = [
-          "s3:GetObject"
+        Resource = [
+          aws_s3_bucket.artifacts.arn,
+          "${aws_s3_bucket.artifacts.arn}/*"
         ]
-        Effect   = "Allow"
-        Resource = "${aws_s3_bucket.artifacts.arn}/*"
       }
     ]
   })
 }
-
 resource "aws_iam_role_policy_attachment" "ec2_policy_attachment" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = aws_iam_policy.ec2_policy.arn
@@ -312,7 +279,7 @@ resource "aws_autoscaling_group" "main" {
   desired_capacity     = 2
   max_size             = 5
   min_size             = 2
-  vpc_zone_identifier  = [aws_subnet.private_a.id, aws_subnet.private_b.id]
+  vpc_zone_identifier  = [aws_subnet.public_a.id, aws_subnet.public_b.id]
 
   launch_template {
     id      = aws_launch_template.ec2.id
